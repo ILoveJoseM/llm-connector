@@ -13,6 +13,7 @@ return [
             'options' => [
                 'temperature' => 0.7,
                 'max_tokens' => 2000,
+                'enable_thinking' => env('QWEN_ENABLE_THINKING', false),
             ],
         ],
     ],

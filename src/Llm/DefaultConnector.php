@@ -36,6 +36,19 @@ class DefaultConnector implements LlmConnectorInterface
      * @var Application
      */
     protected $app;
+
+    /**
+     * 工具列表
+     *
+     * @var array
+     */
+    protected $tools;
+
+    /**
+     * 允许的请求选项
+     *
+     * @var array
+     */
     private $allowedOptions = [
         'temperature',
         'max_tokens',
@@ -49,6 +62,7 @@ class DefaultConnector implements LlmConnectorInterface
         'seed',
         'logprobs',
         'top_logprobs',
+        'enable_thinking',
     ];
 
     /**
@@ -88,16 +102,13 @@ class DefaultConnector implements LlmConnectorInterface
     /**
      * 调用 chat completions API
      *
-     * @param string|array $messages 消息内容，支持字符串或消息数组
+     * @param array $messagesArray 消息内容，支持字符串或消息数组
      * @param array $options 额外选项，会覆盖默认配置
      * @return \Psr\Http\Message\ResponseInterface
      * @throws \GuzzleHttp\Exception\GuzzleException
      */
-    public function completions($messages, array $options = [])
+    public function completions($messagesArray, array $options = [])
     {
-        // 标准化 messages 格式
-        $messagesArray = $this->normalizeMessages($messages);
-
         // 合并选项
         $requestOptions = array_merge(
             $this->config['options'] ?? [],
@@ -109,6 +120,13 @@ class DefaultConnector implements LlmConnectorInterface
             'model' => $this->config['model_name'] ?? 'gpt-3.5-turbo',
             'messages' => $messagesArray,
         ];
+
+        if(!empty($this->tools)){
+            $params['tools'] = $this->tools;
+            if(!isset($params['tool_choice'])){
+                $params['tool_choice'] = $requestOptions['tool_choice'] ?? 'auto';
+            }
+        }
 
         // 添加可选参数
         $this->applyRequestOptions($params, $requestOptions);
@@ -128,18 +146,17 @@ class DefaultConnector implements LlmConnectorInterface
     /**
      * 流式调用 chat completions API
      *
-     * @param string|array $messages
+     * @param array $messagesArray
      * @param array $options
      * @param callable $callback 处理每个数据块的回调函数
      * @return void
      * @throws \GuzzleHttp\Exception\GuzzleException
      */
-    public function streamCompletions($messages, array $options = [], callable $callback = null)
+    public function streamCompletions($messagesArray, array $options = [], callable $callback = null)
     {
         // 强制启用流式输出
         $options['stream'] = true;
 
-        $messagesArray = $this->normalizeMessages($messages);
         $requestOptions = array_merge(
             $this->config['options'] ?? [],
             $options
@@ -150,6 +167,13 @@ class DefaultConnector implements LlmConnectorInterface
             'messages' => $messagesArray,
             'stream' => true,
         ];
+
+        if(!empty($this->tools)){
+            $params['tools'] = $this->tools;
+            if(!isset($params['tool_choice'])){
+                $params['tool_choice'] = $requestOptions['tool_choice'] ?? 'auto';
+            }
+        }
 
         // 添加可选参数
         foreach (['temperature', 'max_tokens', 'top_p', 'frequency_penalty', 'presence_penalty', 'stop'] as $key) {
@@ -227,42 +251,6 @@ class DefaultConnector implements LlmConnectorInterface
     }
 
     /**
-     * 标准化消息格式
-     *
-     * @param string|array $messages
-     * @return array
-     */
-    protected function normalizeMessages($messages): array
-    {
-        if (is_string($messages)) {
-            return [
-                [
-                    'role' => 'user',
-                    'content' => $messages,
-                ],
-            ];
-        }
-
-        // 如果是数组，检查是否已经是标准格式
-        if (is_array($messages)) {
-            // 如果第一个元素有 role 和 content，认为是标准格式
-            if (isset($messages[0]['role']) && isset($messages[0]['content'])) {
-                return $messages;
-            }
-
-            // 否则，将整个数组作为单条 user 消息
-            return [
-                [
-                    'role' => 'user',
-                    'content' => json_encode($messages),
-                ],
-            ];
-        }
-
-        return [];
-    }
-
-    /**
      * 获取当前配置
      *
      * @return array
@@ -290,5 +278,17 @@ class DefaultConnector implements LlmConnectorInterface
     public function supportsStreaming(): bool
     {
         return $this->config['supports_streaming'] ?? false;
+    }
+
+    /**
+     * 设置工具
+     *
+     * @param array $tools
+     * @return self
+     */
+    public function withTools($tools)
+    {
+        $this->tools = $tools;
+        return $this;
     }
 }
