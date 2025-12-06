@@ -35,7 +35,7 @@
             "dont-discover": [
             ],
             "providers": [
-                "JoseChan\\LLM\\LlmServiceProvider"
+                "JoseChan\\LlmConnector\\LlmServiceProvider"
             ]
         }
     },
