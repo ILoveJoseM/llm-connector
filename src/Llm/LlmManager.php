@@ -263,7 +263,7 @@ class LlmManager
         return $this->customCreators[$driver]($this->app);
     }
 
-    protected function createOpenDriver($app): LlmConnectorInterface
+    protected function createOpenaiDriver($app): LlmConnectorInterface
     {
         return new DefaultConnector($app);
     }
